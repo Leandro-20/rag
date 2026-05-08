@@ -1,3 +1,5 @@
 node_modules/
 mi_base_vectorial/
 mi_base_vectorial_repo/
+package-lock.json
+.env

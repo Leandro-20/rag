@@ -3,11 +3,23 @@ import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 import { OllamaEmbeddings } from "@langchain/ollama";
 import { Ollama } from "@langchain/ollama";
 import { HNSWLib } from "@langchain/community/vectorstores/hnswlib";
-import { existsSync, readdirSync, statSync } from "fs";
+import { existsSync, readdirSync, statSync, readFileSync, writeFileSync } from "fs";
 import { join, extname } from "path";
 import { createInterface } from "readline";
+import { createHash } from "crypto";
 
 const VECTOR_STORE_PATH = "./mi_base_vectorial_repo";
+const HASH_PATH = "./mi_base_vectorial_repo/files.hash";
+
+function calcularHash(archivos) {
+  const hash = createHash("md5");
+  for (const archivo of archivos) {
+    const contenido = readFileSync(archivo)
+    hash.update(archivo)      // incluye el nombre
+    hash.update(contenido)    // incluye el contenido
+  }
+  return hash.digest("hex");
+}
 
 const EXTENSIONES = new Set([
   ".js",
@@ -73,30 +85,42 @@ if (!existsSync(REPO_PATH)) {
 }
 
 // ─── ETAPA 1: Indexación ──────────────────────────────────────
-// Siempre re-indexa con el archivo/carpeta que el usuario pasó
 const esArchivo = statSync(REPO_PATH).isFile();
 const archivos = esArchivo ? [REPO_PATH] : obtenerArchivos(REPO_PATH);
 
 console.log(`\nArchivos encontrados (${archivos.length}):`);
 archivos.forEach((a) => console.log(" -", a));
 
-const documentos = [];
-for (const archivo of archivos) {
-  const loader = new TextLoader(archivo);
-  const docs = await loader.load();
-  documentos.push(...docs);
+const hashActual = calcularHash(archivos);
+const hashGuardado = existsSync(HASH_PATH) ? readFileSync(HASH_PATH, "utf-8") : null;
+
+let vectorstore
+
+if (hashActual === hashGuardado) {
+  console.log("\nLos archivos no cambiaron, cargando base vectorial existente...");
+  vectorstore = await HNSWLib.load(VECTOR_STORE_PATH, embeddings);
+} else {
+  console.log(hashGuardado ? "\nArchivos modificados, re-indexando..." : "\nIndexando por primera vez...");
+
+  const documentos = [];
+  for (const archivo of archivos) {
+    const loader = new TextLoader(archivo);
+    const docs = await loader.load();
+    documentos.push(...docs);
+  }
+
+  const splitter = new RecursiveCharacterTextSplitter({
+    chunkSize: 200,
+    chunkOverlap: 30,
+  });
+  const chunks = await splitter.splitDocuments(documentos);
+  console.log(`Total de chunks generados: ${chunks.length}`);
+
+  vectorstore = await HNSWLib.fromDocuments(chunks, embeddings);
+  await vectorstore.save(VECTOR_STORE_PATH);
+  writeFileSync(HASH_PATH, hashActual);
+  console.log("Base vectorial guardada en disco.");
 }
-
-const splitter = new RecursiveCharacterTextSplitter({
-  chunkSize: 200,
-  chunkOverlap: 30,
-});
-const chunks = await splitter.splitDocuments(documentos);
-console.log(`Total de chunks generados: ${chunks.length}`);
-
-const vectorstore = await HNSWLib.fromDocuments(chunks, embeddings);
-await vectorstore.save(VECTOR_STORE_PATH);
-console.log("Base vectorial guardada en disco.");
 
 // ─── ETAPA 2 + 3: Retrieval + Generación en loop ─────────────
 const preguntar = () => {

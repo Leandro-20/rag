@@ -1,0 +1,7 @@
+Node.js fue creado por Ryan Dahl en 2009. Permite ejecutar JavaScript fuera del navegador usando el motor V8 de Chrome. Es muy usado para construir APIs y servidores web.
+
+JavaScript también corre en el navegador y fue creado en 1995 por Brendan Eich. Hoy es el lenguaje más popular del mundo según la encuesta de Stack Overflow.
+
+Los módulos ES6 permiten dividir el código en archivos separados usando import y export. Node.js los soporta cuando el package.json tiene "type": "module".
+
+Las promesas en JavaScript representan un valor asíncrono. Con async/await el código asíncrono se escribe de forma más legible, similar al código sincrónico.

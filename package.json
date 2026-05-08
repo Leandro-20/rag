@@ -1,0 +1,12 @@
+{
+  "name": "rag-aprendizaje",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@langchain/community": "^0.3.0",
+    "@langchain/core": "^0.3.0",
+    "@langchain/ollama": "^0.1.0",
+    "hnswlib-node": "^3.0.0",
+    "langchain": "^0.3.0"
+  }
+}
